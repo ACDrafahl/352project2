@@ -18,8 +18,8 @@ int RSFS_init(){
         printf("[%s] fails to init data_blocks\n", debugTitle);
         return -1;
       }
-      data_blocks[i] = block;  
-    } 
+      data_blocks[i] = block;
+    }
 
     //initialize bitmaps
     for(int i=0; i<NUM_DBLOCKS; i++) data_bitmap[i]=0;
@@ -183,22 +183,40 @@ void RSFS_stat(){
 //------ implementation of the following functions is incomplete --------------------------------------------------------- 
 
 
-
+// 2.3.3
 //open a file with RSFS_RDONLY or RSFS_RDWR flags
 //return a file descriptor if succeed; 
 //otherwise return a negative integer value
 int RSFS_open(char file_name, int access_flag){
-
-    //to do: check to make sure access_flag is either RSFS_RDONLY or RSFS_RDWR
-    
-    //to do: find dir_entry matching file_name
-    
-    //to do: find the corresponding inode 
-    
-    //to do: find an unused open-file-entry in open-file-table and fill the fields of the entry properly
-    
-    //to do: return the index of the open-file-entry in open-file-table as file descriptor
-    
+    // // 2.3.3 Check to make sure access_flag is either RSFS_RDONLY or RSFS_RDWR
+    // if (!(access_flag == RSFS_RDONLY || access_flag == RSFS_RDWR)) {
+    //     printf("[open] access_flag is invalid.\n");
+    //     return -1;
+    // }
+    // if (DEBUG) printf("[open] access_flag is valid.\n");
+    // // 2.3.3 Find dir_entry matching file_name
+    // struct dir_entry *dir_entry = search_dir(file_name);
+    // if (dir_entry == NULL) {
+    //     printf("[open] file (%c) does not exist.\n", file_name);
+    //     return -1;
+    // }
+    // if (DEBUG) printf("[open] file (%c) exists.\n", file_name);
+    // //to do: find the corresponding inode 
+    // int inode_number = dir_entry->inode_number;
+    // if (inode_number < 0 || inode_number >= NUM_INODES) {
+    //     printf("[open] inode number (%d) is invalid.\n", inode_number);
+    //     return -1;
+    // }
+    // if (DEBUG) printf("[open] inode number (%d) is valid.\n", inode_number);
+    // // 2.3.3 Find an unused open-file-entry in open-file-table and fill the fields of the entry properly
+    // int fd = allocate_open_file_entry(access_flag, inode_number);
+    // if (fd < 0) {
+    //     printf("[open] no available open file entry.\n");
+    //     return -1;
+    // }
+    // if (DEBUG) printf("[open] open file entry is allocated with fd:%d.\n", fd);
+    // // 2.3.3 Return the index of the open-file-entry in open-file-table as file descriptor
+    // return fd;
 }
 
 
@@ -292,7 +310,7 @@ int RSFS_read(int fd, void *buf, int size){
 //close file: return 0 if succeed; otherwise return -1
 int RSFS_close(int fd){
 
-    //to do: sanity test of fd    
+    //2.3.3 sanity test of fd   
     
 
     //to do: get the corresponding open file entry
