@@ -184,21 +184,67 @@ void RSFS_stat(){
 
 
 
-//open a file with RSFS_RDONLY or RSFS_RDWR flags
-//return a file descriptor if succeed; 
-//otherwise return a negative integer value
-int RSFS_open(char file_name, int access_flag){
-
+// 2.3.3
+// open a file with RSFS_RDONLY or RSFS_RDWR flags
+// return a file descriptor if succeed; 
+// otherwise return a negative integer value
+int RSFS_open(char file_name, int access_flag) {
     //to do: check to make sure access_flag is either RSFS_RDONLY or RSFS_RDWR
-    
+    if(access_flag != RSFS_RDONLY && access_flag != RSFS_RDWR) {
+        printf("[open] access_flag is invalid.\n");
+        return -1;
+    }
     //to do: find dir_entry matching file_name
+    struct dir_entry *entry = search_dir(file_name);
+    if(entry == NULL) {
+        printf("[open] file (%c) does not exist.\n", file_name);
+        return -2;
+    }
     
     //to do: find the corresponding inode 
+    int inode_number = entry->inode_number;
+    struct inode *node = &inodes[inode_number];
+
+    // 2.3.3 Synchronization, enforce reader-writer concurrency
+    pthread_mutex_lock(&node->rw_mutex);
+    if(access_flag == RSFS_RDONLY) {
+        // Wait while a writer is active
+        while(node->writer_active) {
+            pthread_cond_wait(&node->rw_cond, &node->rw_mutex);
+        }
+        node->reader_count++;
+    }
+    else if(access_flag == RSFS_RDWR) {
+        // Wait while there are active readers or another writer
+        while(node->reader_count > 0 || node->writer_active) {
+            pthread_cond_wait(&node->rw_cond, &node->rw_mutex);
+        }
+        node->writer_active = 1;
+    }
+    pthread_mutex_unlock(&node->rw_mutex);
     
     //to do: find an unused open-file-entry in open-file-table and fill the fields of the entry properly
+    int fd = allocate_open_file_entry(access_flag, inode_number);
+    if (fd < 0) {
+        // Decrement reader/writer count if allocation fails
+        pthread_mutex_lock(&node->rw_mutex);
+        if(access_flag == RSFS_RDONLY) {
+            node->reader_count--;
+            if(node->reader_count == 0) {
+                pthread_cond_broadcast(&node->rw_cond);
+            }
+        }
+        else if(access_flag == RSFS_RDWR) {
+            node->writer_active = 0;
+            pthread_cond_broadcast(&node->rw_cond);
+        }
+        pthread_mutex_unlock(&node->rw_mutex);
+        printf("[open] fail to allocate an open file entry.\n");
+        return -3;        
+    }
     
     //to do: return the index of the open-file-entry in open-file-table as file descriptor
-    
+    return fd;
 }
 
 

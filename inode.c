@@ -32,6 +32,12 @@ int allocate_inode(){
             //initialize the inode
             inodes[i].length=0;
             for(int j=0; j<NUM_POINTERS; j++) inodes[i].block[j]=-1;
+
+            // initialize the mutex and condition variable for this inode
+            pthread_mutex_init(&inodes[i].rw_mutex, NULL);
+            pthread_cond_init(&inodes[i].rw_cond, NULL);
+            inodes[i].reader_count = 0;
+            inodes[i].writer_active = 0;
             
             break;
         }
