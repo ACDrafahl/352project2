@@ -255,26 +255,85 @@ int RSFS_append(int fd, void *buf, int size){
 
     //to do: check the sanity of the arguments: 
     // fd should be in [0,NUM_OPEN_FILE] and size>0.
+    if(fd < 0 || fd >= NUM_OPEN_FILE || size <= 0) {
+        printf("[append] invalid file descriptor (%d) or size (%d)\n", fd, size);
+        return 0; // 0 because no bytes appended
+    }
     
     //to do: get the open file entry corresponding to fd
+    struct open_file_entry *entry = &open_file_table[fd];
+    if(entry->used == 0) {
+        printf("[append] file descriptor (%d) is not in use\n", fd);
+        return 0; // 0 because no bytes appended
+    }
     
     //to do: check if the file is opened with RSFS_RDWR mode; 
     // otherwise return 0
+    if(entry->access_flag != RSFS_RDWR) {
+        printf("[append] file descriptor (%d) is not opened with RSFS_RDWR mode\n", fd);
+        return 0; // 0 because no bytes appended
+    }
     
     //to do: get the current position
+    int current_position = entry->position;
     
     //to do: get the inode 
+    struct inode *node = &inodes[entry->inode_number];
     
     //to do: append the content in buf to the data blocks of the file 
     // from the end of the file; allocate new block(s) when needed 
     // - (refer to lecture L22 on how)
-    
-     
+    int bytes_written = 0;
+
+    while (bytes_written < size) {
+        int byte_offset = current_position + bytes_written;
+        int block_index = byte_offset / BLOCK_SIZE;
+        int offset_in_block = byte_offset % BLOCK_SIZE;
+
+        // Check if we need to allocate a new block
+        if(block_index >= NUM_POINTERS) {
+            // No more space in the inode's pointers
+            printf("[append] file size exceeds maximum limit\n");
+            break;
+        }
+
+        // Allocate a new data block if needed
+        if(node->block[block_index] == -1) {
+            int new_block = allocate_data_block();
+            if(new_block < 0) {
+                printf("[append] fail to allocate a new data block\n");
+                break;
+            }
+            node->block[block_index] = new_block;
+        }
+
+        // Get block's memory
+        char *block = (char *)data_blocks[node->block[block_index]];
+        int space_in_block = BLOCK_SIZE - offset_in_block;
+        int bytes_remaining = size - bytes_written;
+        int chunk;
+
+        if (bytes_remaining < space_in_block) {
+            chunk = bytes_remaining;
+        } else {
+            chunk = space_in_block;
+        }
+
+        // Copy data to the block
+        memcpy(block + offset_in_block, (char *)buf + bytes_written, chunk);
+        bytes_written += chunk;
+    }
+
     //to do: update the current position in open file entry
-    
+    entry->position += bytes_written;
+
+    // update file length if need be
+    if(entry->position > node->length) {
+        node->length = entry->position;
+    }
 
     //to do: return the number of bytes appended to the file
-    
+    return bytes_written;
 }
 
 
@@ -306,32 +365,76 @@ int RSFS_fseek(int fd, int offset){
 }
 
 
-
-
-
-
 //read up to size bytes to buf from file's current position towards the end
 //return -1 if fd is invalid; otherwise return the number of bytes actually read
 int RSFS_read(int fd, void *buf, int size){
 
     //to do: sanity test of fd and size (the size should not be negative)    
-    
+    if(fd < 0 || fd >= NUM_OPEN_FILE || size < 0) {
+        printf("[read] invalid file descriptor (%d) or size (%d)\n", fd, size);
+        return -1; 
+    }
 
     //to do: get the corresponding open file entry
-    
+    struct open_file_entry *entry = &open_file_table[fd];
+    if(entry->used == 0) {
+        printf("[read] file descriptor (%d) is not in use\n", fd);
+        return -1; 
+    }
 
     //to do: get the current position
-    
+    int current_position = entry->position;
     
     //to do: get the corresponding inode 
+    struct inode *node = &inodes[entry->inode_number];
     
     //to do: read from the file
+    int bytes_read = 0;
+
+    while (bytes_read < size) {
+        int byte_offset = current_position + bytes_read;
+        
+        // Stop if we reach the end of the file
+        if (byte_offset >= node->length) {
+            break;
+        }
+
+        int block_index = byte_offset / BLOCK_SIZE;
+        int offset_in_block = byte_offset % BLOCK_SIZE;
+        
+        // Check if we need to read from a new block
+        if (block_index >= NUM_POINTERS || node->block[block_index] == -1) {
+            printf("[read] file size exceeds maximum limit\n");
+            break;
+        }
+
+        // Get block's memory
+        char *block = (char *)data_blocks[node->block[block_index]];
+        int space_in_block = BLOCK_SIZE - offset_in_block;
+        int bytes_remaining = size - bytes_read;
+        int bytes_left_in_file = node->length - byte_offset;
+        int chunk;
+
+        if(bytes_remaining < space_in_block) {
+            chunk = bytes_remaining;
+        } else {
+            chunk = space_in_block;
+        }
+
+        if(chunk > bytes_left_in_file) {
+            chunk = bytes_left_in_file;
+        }
+
+        // Copy data from the block to buf
+        memcpy((char *)buf + bytes_read, block + offset_in_block, chunk);
+        bytes_read += chunk;
+    }
     
     //to do: update the current position in open file entry
+    entry->position += bytes_read;
     
-
     //to do: return the actual number of bytes read
-
+    return bytes_read;
 }
 
 
@@ -380,7 +483,88 @@ int RSFS_close(int fd){
 
 //write the content of size (bytes) in buf to the file (of descripter fd) 
 int RSFS_write(int fd, void *buf, int size){
+    // Sanity check
+    if(fd < 0 || fd >= NUM_OPEN_FILE || size <= 0) {
+        printf("[write] invalid file descriptor (%d) or size (%d)\n", fd, size);
+        return -1; 
+    }
 
+    // Get the corresponding open file entry
+    struct open_file_entry *entry = &open_file_table[fd];
+    if(entry->used == 0) {
+        printf("[write] file descriptor (%d) is not in use\n", fd);
+        return -1; 
+    }
+
+    // Check if the file is opened with RSFS_RDWR mode
+    if(entry->access_flag != RSFS_RDWR) {
+        printf("[write] file descriptor (%d) is not opened with RSFS_RDWR mode\n", fd);
+        return -1; 
+    }
+
+    // Get the current position
+    int current_position = entry->position;
+    // Get the inode
+    struct inode *node = &inodes[entry->inode_number];
+
+    int bytes_written = 0;
+
+    while(bytes_written < size) {
+        int byte_offset = current_position + bytes_written;
+        int block_index = byte_offset / BLOCK_SIZE;
+        int offset_in_block = byte_offset % BLOCK_SIZE;
+
+        if(block_index >= NUM_POINTERS) {
+            // No more space in the inode's pointers
+            printf("[write] file size exceeds maximum limit\n");
+            break;
+        }
+
+        // Allocate a new data block if needed
+        if(node->block[block_index] == -1) {
+            int new_block = allocate_data_block();
+            if(new_block < 0) {
+                printf("[write] fail to allocate a new data block\n");
+                break;
+            }
+            node->block[block_index] = new_block;
+        }
+
+        // Get block's memory
+        char *block = (char *)data_blocks[node->block[block_index]];
+        int space_in_block = BLOCK_SIZE - offset_in_block;
+        int bytes_remaining = size - bytes_written;
+        int chunk;
+
+        if(bytes_remaining < space_in_block) {
+            chunk = bytes_remaining;
+        } else {
+            chunk = space_in_block;
+        }
+
+        // Copy data to the block
+        memcpy(block + offset_in_block, (char *)buf + bytes_written, chunk);
+        bytes_written += chunk;
+    }
+
+    // Update the current position in open file entry
+    entry->position += bytes_written;
+
+    // Truncate the file, wipe remaining blocks
+    int new_length = entry->position;
+    int last_used_block = (new_length + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    for(int i = last_used_block; i < NUM_POINTERS; i++) {
+        if(node->block[i] != -1) {
+            free_data_block(node->block[i]);
+            node->block[i] = -1;
+        }
+    }
+
+    // Update inode length
+    node->length = new_length;
+
+    return bytes_written;
 }
 
 
