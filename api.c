@@ -343,25 +343,38 @@ int RSFS_append(int fd, void *buf, int size){
 //update current position of the file (which is in the open_file_entry) to offset
 //return -1 if fd is invalid; otherwise return the current position after the update
 int RSFS_fseek(int fd, int offset){
-
     //to do: sanity test of fd; if fd is not valid, return -1    
-    
+    if(fd < 0 || fd >= NUM_OPEN_FILE) {
+        printf("[fseek] invalid file descriptor (%d)\n", fd);
+        return -1; 
+    }
 
     //to do: get the correspondng open file entry
-    
+    struct open_file_entry *entry = &open_file_table[fd];
+    if(entry->used == 0) {
+        printf("[fseek] file descriptor (%d) is not in use\n", fd);
+        return -1; 
+    }
 
     //to do: get the current position
-    
+    int current_position = entry->position;
 
     //to do: get the inode and file length
-    
+    int inode_number = entry->inode_number;
+    struct inode *node = &inodes[inode_number];
+    int file_length = node->length;
 
     //to do: check if argument offset is not within 0...length, 
     // do not proceed and return current position
+    if(offset < 0 || offset > file_length) {
+        printf("[fseek] offset (%d) is out of bounds (0, %d)\n", offset, file_length);
+        return current_position; 
+    }
     
-
     //to do: update the current position to offset, and 
     // return the new current position
+    entry->position = offset;
+    return entry->position;
 }
 
 
