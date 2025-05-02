@@ -1,0 +1,23 @@
+Andy Drafahl, acd7, 974448532
+
+README - RSFS Project
+
+This project implements a basic in-memory file system called RSFS (Ridiculously Simple File System). File operations include: create, open, read, write, append, seek, close, delete, and stat. There's also advanced functionality where files can be accessed by multiple readers at once, or by a single writer exclusively, using mutexes and condition variables.
+
+Advanced functionality includes:
+- Reader-writer synchronization per file
+- Blocking behavior for writer-open during reads and vice versa
+- Safe concurrent file access for both reads and writes
+
+Files modified or added:
+
+- def.h: added fields to struct inode for concurrency control (rw_mutex, rw_cond, reader_count, writer_active)
+- inode.c: changed allocate_inode() to initialize these fields
+- api.c: implemented or updated RSFS_open, RSFS_append, RSFS_write, RSFS_read, RSFS_fseek, and RSFS_close
+  - also changed free_open_file_entry() to reset all fields: access_flag, inode_number, and position
+
+How to build and run:
+
+make clean
+make
+./app

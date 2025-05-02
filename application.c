@@ -106,8 +106,8 @@ void *writer_thread(void *ptr){
 void test_concurrency(){
 
     //create a file named "A"
-    // int ret = RSFS_create('A');
-    // printf("[main] result of RSFS_create('A'): %d\n", ret);
+    int ret = RSFS_create('A');
+    printf("[main] result of RSFS_create('A'): %d\n", ret);
 
     //write initial content to the file
     char msg_to_write[55] = "hello 1, hello 2, hello 3, hello 4, hello 5, hello 6, ";
@@ -300,7 +300,5 @@ void main(){
 
     printf("\n\n--------Test for Concurrent Readers/Writers-----------\n\n");
     test_concurrency();
-
-    
 
 }

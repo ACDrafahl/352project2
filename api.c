@@ -274,11 +274,12 @@ int RSFS_append(int fd, void *buf, int size){
         return 0; // 0 because no bytes appended
     }
     
-    //to do: get the current position
-    int current_position = entry->position;
-    
     //to do: get the inode 
     struct inode *node = &inodes[entry->inode_number];
+
+    //to do: get the current position (moved this to fix length issue)
+    int current_position = node->length;
+    entry->position = current_position;
     
     //to do: append the content in buf to the data blocks of the file 
     // from the end of the file; allocate new block(s) when needed 
@@ -337,11 +338,9 @@ int RSFS_append(int fd, void *buf, int size){
 }
 
 
-
-
-
-//update current position of the file (which is in the open_file_entry) to offset
-//return -1 if fd is invalid; otherwise return the current position after the update
+// 2.3.5
+// update current position of the file (which is in the open_file_entry) to offset
+// return -1 if fd is invalid; otherwise return the current position after the update
 int RSFS_fseek(int fd, int offset){
     //to do: sanity test of fd; if fd is not valid, return -1    
     if(fd < 0 || fd >= NUM_OPEN_FILE) {
@@ -377,9 +376,9 @@ int RSFS_fseek(int fd, int offset){
     return entry->position;
 }
 
-
-//read up to size bytes to buf from file's current position towards the end
-//return -1 if fd is invalid; otherwise return the number of bytes actually read
+// 2.3.6
+// read up to size bytes to buf from file's current position towards the end
+// return -1 if fd is invalid; otherwise return the number of bytes actually read
 int RSFS_read(int fd, void *buf, int size){
 
     //to do: sanity test of fd and size (the size should not be negative)    
@@ -450,8 +449,8 @@ int RSFS_read(int fd, void *buf, int size){
     return bytes_read;
 }
 
-
-//close file: return 0 if succeed; otherwise return -1
+// 2.3.8
+// close file: return 0 if succeed; otherwise return -1
 int RSFS_close(int fd){
 
     //to do: sanity test of fd    
@@ -493,8 +492,8 @@ int RSFS_close(int fd){
 }
 
 
-
-//write the content of size (bytes) in buf to the file (of descripter fd) 
+// 2.3.7
+// write the content of size (bytes) in buf to the file (of descripter fd) 
 int RSFS_write(int fd, void *buf, int size){
     // Sanity check
     if(fd < 0 || fd >= NUM_OPEN_FILE || size <= 0) {
