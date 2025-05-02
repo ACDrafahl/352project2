@@ -248,9 +248,9 @@ int RSFS_open(char file_name, int access_flag) {
 }
 
 
-
-//append the content in buf to the end of the file of descriptor fd
-//return the number of bytes actually appended to the file
+// 2.3.4
+// append the content in buf to the end of the file of descriptor fd
+// return the number of bytes actually appended to the file
 int RSFS_append(int fd, void *buf, int size){
 
     //to do: check the sanity of the arguments: 
@@ -339,16 +339,41 @@ int RSFS_read(int fd, void *buf, int size){
 int RSFS_close(int fd){
 
     //to do: sanity test of fd    
+    if(fd < 0 || fd >= NUM_OPEN_FILE) {
+        printf("[close] invalid file descriptor (%d)\n", fd);
+        return -1;
+    }
     
 
     //to do: get the corresponding open file entry
+    struct open_file_entry *entry = &open_file_table[fd];
+    if(entry->used == 0) {
+        printf("[close] file descriptor (%d) is not in use\n", fd);
+        return -1;
+    }
     
-
     //to do: get the corresponding inode 
-    
+    int inode_number = entry->inode_number;
+    struct inode *node = &inodes[inode_number];
+
+    // 2.3.3 Synchronization, update reader-writer tracking
+    pthread_mutex_lock(&node->rw_mutex);
+    if(entry->access_flag == RSFS_RDONLY) {
+        node->reader_count--;
+        if(node->reader_count == 0) {
+            pthread_cond_broadcast(&node->rw_cond); // notify waiting writer
+        }
+    }
+    else if(entry->access_flag == RSFS_RDWR) {
+        node->writer_active = 0;
+        pthread_cond_broadcast(&node->rw_cond); // notify waiting readers/writers
+    }
+    pthread_mutex_unlock(&node->rw_mutex);
 
     //to do: release this open file entry in the open file table
-    
+    free_open_file_entry(fd);
+
+    return 0;
 }
 
 
